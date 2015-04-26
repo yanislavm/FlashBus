@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -30,13 +31,13 @@ public class EventBus {
     /**
      * Technical interface for event bus event handlers.
      */
-    public interface IEventHandler {
+    public interface IEventHandler<E extends IEvent> {
         /**
          * Event handler.
          *
          * @param event The event instance.
          */
-        void onEvent(IEvent event);
+        void onEvent(E event);
     }
 
     /**
@@ -60,9 +61,14 @@ public class EventBus {
     private final HashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new HashMap<>();
 
     /**
+     * Keeps information which Event Handler for which Event type is
+     */
+    private final WeakHashMap<IEventHandler, Class<? extends IEvent>> mEventHandlerEvent = new WeakHashMap<>();
+
+    /**
      * The map of sticky events.
      */
-    private final Map<Class<?>, Object> mStickyEvents = new ConcurrentHashMap<>();
+    private final Map<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
 
     /**
      * Get the 'default' bus instance.
@@ -83,23 +89,31 @@ public class EventBus {
         if (eventHandler == null) {
             return;
         }
+
         synchronized (mEventHandlers) {
+            mEventHandlerEvent.put(eventHandler, eventClass);
             LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
             if (handlers == null) {
                 handlers = new LinkedList<>();
                 mEventHandlers.put(eventClass, handlers);
             }
-            boolean contains = false;
-            for (final WeakReference<IEventHandler> handlerReference : handlers) {
-                if (handlerReference.get() == eventHandler) {
-                    contains = true;
-                    break;
+
+            final IEvent stickyEvent = mStickyEvents.get(eventClass);
+            if (stickyEvent != null) {
+                try {
+                    eventHandler.onEvent(eventClass.cast(stickyEvent));
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "Error dispatching event", e);
                 }
             }
 
-            if (!contains) {
-                handlers.add(new WeakReference<>(eventHandler));
+            for (final WeakReference<IEventHandler> handlerReference : handlers) {
+                if (handlerReference.get() == eventHandler) {
+                    return;
+                }
             }
+
+            handlers.add(new WeakReference<>(eventHandler));
         }
     }
 
@@ -108,18 +122,27 @@ public class EventBus {
      *
      * @param eventHandler The callback of the event handler.
      */
-    public void unregister(final Class<? extends IEvent> eventClass, final IEventHandler eventHandler) {
+    public void unregister(final IEventHandler eventHandler) {
         if (eventHandler == null) {
             return;
         }
+
         synchronized (mEventHandlers) {
-            final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-            if (handlers != null) {
-                final Iterator<WeakReference<IEventHandler>> handlerReferenceIterator = handlers.iterator();
-                while (handlerReferenceIterator.hasNext()) {
-                    if (handlerReferenceIterator.next().get() == eventHandler) {
-                        handlerReferenceIterator.remove();
-                        return;
+            Class<? extends IEvent> eventClass = mEventHandlerEvent.get(eventHandler);
+
+            if (eventClass != null) {
+                mEventHandlerEvent.remove(eventHandler);
+                final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
+                if (handlers != null) {
+                    final Iterator<WeakReference<IEventHandler>> handlerReferenceIterator = handlers.iterator();
+                    while (handlerReferenceIterator.hasNext()) {
+                        final WeakReference<IEventHandler> handlerReference = handlerReferenceIterator.next();
+                        if ((handlerReference.get() == null) || (handlerReference.get() == eventHandler)) {
+                            handlerReferenceIterator.remove();
+                            if (handlers.isEmpty()) {
+                                mEventHandlers.remove(eventClass);
+                            }
+                        }
                     }
                 }
             }
@@ -136,6 +159,7 @@ public class EventBus {
         if (eventClass == null) {
             return null;
         }
+
         return eventClass.cast(mStickyEvents.get(eventClass));
     }
 
@@ -148,6 +172,7 @@ public class EventBus {
         if (event == null) {
             return;
         }
+
         mStickyEvents.put(event.getClass(), event);
         post(event);
     }
@@ -161,35 +186,34 @@ public class EventBus {
         if (event == null) {
             return;
         }
+
         final Class<? extends IEvent> eventClass = event.getClass();
         final LinkedList<WeakReference<IEventHandler>> handlers;
         synchronized (mEventHandlers) {
             handlers = mEventHandlers.get(eventClass);
         }
+
         if (handlers == null) {
             return;
         }
+
         final Iterator<WeakReference<IEventHandler>> handlersIterator = handlers.iterator();
         while (handlersIterator.hasNext()) {
-            try {
-                final IEventHandler handler = handlersIterator.next().get();
-                if (handler == null) {
-                    //housekeeping of GCd callbacks
-                    handlersIterator.remove();
-                } else {
-                    mHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                handler.onEvent(event);
-                            } catch (RuntimeException e) {
-                                Log.e(TAG, "Error dispatching event", e);
-                            }
+            final IEventHandler handler = handlersIterator.next().get();
+            if (handler == null) {
+                //housekeeping of GCd callbacks
+                handlersIterator.remove();
+            } else {
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            handler.onEvent(event);
+                        } catch (RuntimeException e) {
+                            Log.e(TAG, "Error dispatching event", e);
                         }
-                    });
-                }
-            } catch (RuntimeException e) {
-                Log.e(TAG, "Error dispatching event", e);
+                    }
+                });
             }
         }
     }
