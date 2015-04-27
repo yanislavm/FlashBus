@@ -1,5 +1,11 @@
 apply plugin: 'com.android.library'
 
+ext {
+    PUBLISH_GROUP_ID = 'com.msagi.eventbus'
+    PUBLISH_ARTIFACT_ID = 'eventbus'
+    PUBLISH_VERSION = '1.0.0'
+}
+
 android {
     compileSdkVersion 22
     buildToolsVersion "22.0.1"
@@ -24,5 +30,6 @@ dependencies {
     testCompile 'junit:junit:4.11'
     testCompile 'org.mockito:mockito-all:1.9.5'
     testCompile "org.robolectric:robolectric:2.4"
-
 }
+
+apply from: 'android-release-aar.gradle'
