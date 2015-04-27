@@ -223,6 +223,19 @@ public class EventBusTest {
 	}
 
 	@Test
+	public void removeStickyEventWithNull() {
+		mEventBus.removeSticky(null);
+	}
+
+	@Test
+	public void removeStickyEvent() {
+		mEventBus.postSticky(new TestEvent());
+		Assert.assertNotNull(mEventBus.getStickyEvent(TestEvent.class));
+		mEventBus.removeSticky(TestEvent.class);
+		Assert.assertNull(mEventBus.getStickyEvent(TestEvent.class));
+	}
+
+	@Test
 	public void unregisterEventHandler() {
 		final EventBus.IEventHandler<TestEvent> eventHandler = new EventBus.IEventHandler<TestEvent>() {
 			@Override

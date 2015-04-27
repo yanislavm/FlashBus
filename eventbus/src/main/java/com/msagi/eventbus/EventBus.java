@@ -155,7 +155,7 @@ public class EventBus {
      * @param eventClass The class to get the sticky event for.
      * @return The sticky event object if there is any for the given event class.
      */
-    public <T> T getStickyEvent(final Class<T> eventClass) {
+    public <T extends IEvent> T getStickyEvent(final Class<T> eventClass) {
         if (eventClass == null) {
             return null;
         }
@@ -175,6 +175,18 @@ public class EventBus {
 
         mStickyEvents.put(event.getClass(), event);
         post(event);
+    }
+
+    /**
+     * Removes sticky event based on the event class
+     * @param eventClass Event class for the sticky event that needs to be removed
+     */
+    public void removeSticky(final Class<? extends IEvent> eventClass) {
+        if (eventClass == null) {
+            return;
+        }
+
+        mStickyEvents.remove(eventClass);
     }
 
     /**
