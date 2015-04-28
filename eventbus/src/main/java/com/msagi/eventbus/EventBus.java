@@ -68,7 +68,7 @@ public class EventBus {
     /**
      * The map of sticky events.
      */
-    private final Map<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
 
     /**
      * Get the 'default' bus instance.
