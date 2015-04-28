@@ -58,7 +58,7 @@ public class EventBus {
     /**
      * The event handlers registry.
      */
-    private final HashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new HashMap<>();
+    private final ConcurrentHashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new ConcurrentHashMap<>();
 
     /**
      * Keeps information which Event Handler for which Event type is
@@ -200,10 +200,7 @@ public class EventBus {
         }
 
         final Class<? extends IEvent> eventClass = event.getClass();
-        final LinkedList<WeakReference<IEventHandler>> handlers;
-        synchronized (mEventHandlers) {
-            handlers = mEventHandlers.get(eventClass);
-        }
+        final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
 
         if (handlers == null) {
             return;
