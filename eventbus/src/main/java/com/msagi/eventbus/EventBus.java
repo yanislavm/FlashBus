@@ -5,10 +5,8 @@ import android.os.Looper;
 import android.util.Log;
 
 import java.lang.ref.WeakReference;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -51,11 +49,6 @@ public class EventBus {
     private static final EventBus DEFAULT_BUS = new EventBus();
 
     /**
-     * A handy handler on the UI thread.
-     */
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-
-    /**
      * The event handlers registry.
      */
     private final ConcurrentHashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new ConcurrentHashMap<>();
@@ -69,6 +62,11 @@ public class EventBus {
      * The map of sticky events.
      */
     private final ConcurrentHashMap<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
+
+    /**
+     * Message handler that will be used to deliver events to the UI Thread
+     */
+    private final MessagesHandler mUiThreadMessageHandler = new MessagesHandler(new Handler(Looper.getMainLooper()));
 
     /**
      * Get the 'default' bus instance.
@@ -213,16 +211,7 @@ public class EventBus {
                 //housekeeping of GCd callbacks
                 handlersIterator.remove();
             } else {
-                mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            handler.onEvent(event);
-                        } catch (RuntimeException e) {
-                            Log.e(TAG, "Error dispatching event", e);
-                        }
-                    }
-                });
+                mUiThreadMessageHandler.postEvent(event, handler);
             }
         }
     }
