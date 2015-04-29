@@ -35,12 +35,12 @@ public class EventBusTest {
 
 	@Test
 	public void postNullEvent() {
-		mEventBus.post(null);
+		mEventBus.post(EventBus.UI_THREAD, null);
 	}
 
 	@Test
 	public void postNullStickyEvent() {
-		mEventBus.postSticky(null);
+		mEventBus.postSticky(EventBus.UI_THREAD, null);
 	}
 
 	@Test
@@ -63,7 +63,7 @@ public class EventBusTest {
 		};
 
 		mEventBus.register(TestEvent.class, eventHandler);
-		mEventBus.post(new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(1, mReceivedEvents.size());
@@ -80,7 +80,7 @@ public class EventBusTest {
 
 		mEventBus.register(TestEvent.class, eventHandler);
 		mEventBus.register(TestEvent.class, eventHandler);
-		mEventBus.post(new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(1, mReceivedEvents.size());
@@ -100,7 +100,7 @@ public class EventBusTest {
 		// reference to the handler we have not to be able to find any events
 		System.gc();
 
-		mEventBus.post(new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(0, mReceivedEvents.size());
@@ -116,7 +116,7 @@ public class EventBusTest {
 		};
 
 		mEventBus.register(TestEvent.class, eventHandler);
-		mEventBus.post(new TestEventWithData("test"));
+		mEventBus.post(EventBus.UI_THREAD, new TestEventWithData("test"));
 
 		runUiTasks();
 		assertEquals(0, mReceivedEvents.size());
@@ -140,7 +140,7 @@ public class EventBusTest {
 
 		mEventBus.register(TestEvent.class, eventHandler);
 		mEventBus.register(TestEventWithData.class, eventHandler2);
-		mEventBus.post(new TestEventWithData("test"));
+		mEventBus.post(EventBus.UI_THREAD, new TestEventWithData("test"));
 
 		runUiTasks();
 		assertEquals(1, mReceivedEvents.size());
@@ -168,8 +168,8 @@ public class EventBusTest {
 		mEventBus.register(TestEvent.class, eventHandler);
 		mEventBus.register(TestEventWithData.class, eventHandler2);
 
-		mEventBus.post(new TestEvent());
-		mEventBus.post(new TestEventWithData("test"));
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEventWithData("test"));
 
 		runUiTasks();
 		assertEquals(2, mReceivedEvents.size());
@@ -183,7 +183,7 @@ public class EventBusTest {
 
 	@Test
 	public void postStickyEvent() {
-		mEventBus.postSticky(new TestEvent());
+		mEventBus.postSticky(EventBus.UI_THREAD, new TestEvent());
 		final TestEvent event = mEventBus.getStickyEvent(TestEvent.class);
 		assertNotNull(event);
 	}
@@ -198,7 +198,7 @@ public class EventBusTest {
 		};
 
 		mEventBus.register(TestEvent.class, eventHandler);
-		mEventBus.postSticky(new TestEvent());
+		mEventBus.postSticky(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(1, mReceivedEvents.size());
@@ -214,7 +214,7 @@ public class EventBusTest {
 			}
 		};
 
-		mEventBus.postSticky(new TestEvent());
+		mEventBus.postSticky(EventBus.UI_THREAD, new TestEvent());
 		mEventBus.register(TestEvent.class, eventHandler);
 
 		runUiTasks();
@@ -229,7 +229,7 @@ public class EventBusTest {
 
 	@Test
 	public void removeStickyEvent() {
-		mEventBus.postSticky(new TestEvent());
+		mEventBus.postSticky(EventBus.UI_THREAD, new TestEvent());
 		Assert.assertNotNull(mEventBus.getStickyEvent(TestEvent.class));
 		mEventBus.removeSticky(TestEvent.class);
 		Assert.assertNull(mEventBus.getStickyEvent(TestEvent.class));
@@ -247,7 +247,7 @@ public class EventBusTest {
 		mEventBus.register(TestEvent.class, eventHandler);
 		mEventBus.unregister(eventHandler);
 
-		mEventBus.post(new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(0, mReceivedEvents.size());
@@ -263,7 +263,7 @@ public class EventBusTest {
 		};
 
 		mEventBus.register(TestEvent.class, eventHandler);
-		mEventBus.post(new TestEvent());
+		mEventBus.post(EventBus.UI_THREAD, new TestEvent());
 
 		runUiTasks();
 		assertEquals(0, mReceivedEvents.size());
@@ -278,7 +278,7 @@ public class EventBusTest {
 			}
 		};
 
-		mEventBus.postSticky(new TestEvent());
+		mEventBus.postSticky(EventBus.UI_THREAD, new TestEvent());
 		mEventBus.register(TestEvent.class, eventHandler);
 
 		runUiTasks();
