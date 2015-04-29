@@ -89,7 +89,7 @@ public class EventBus {
      */
     public EventBus() {
         mUiThreadMessageHandler = new MessagesHandler(new Handler(Looper.getMainLooper()));
-        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundMessageHandler");
+        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundMessageHandler", BACKGROUND_THREAD);
         backgroundHandlerThread.start();
         mBackgroundThreadMessageHandler = new MessagesHandler(new Handler(backgroundHandlerThread.getLooper()));
     }

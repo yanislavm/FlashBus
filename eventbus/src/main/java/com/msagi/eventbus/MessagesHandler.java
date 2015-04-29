@@ -64,7 +64,6 @@ public class MessagesHandler {
 					Log.e(TAG, "Error dispatching event", e);
 				}
 			}
-
 			mHandlerTriggered.set(false);
 		}
 	};
