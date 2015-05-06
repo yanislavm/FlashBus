@@ -291,4 +291,11 @@ public class EventBusTest {
 	private void runUiTasks() {
 		Robolectric.runUiThreadTasks();
 	}
+
+	/**
+	 * Forces Robolectric to force Handler to deliver events to the UI thread
+	 */
+	private void runBackgroundTasks() {
+		Robolectric.runUiThreadTasks();
+	}
 }
