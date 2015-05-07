@@ -39,6 +39,6 @@ public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
 
     @Override
     public void post() {
-        mFlashBus.post(EventBus.UI_THREAD, new FlashBusEvent());
+        mFlashBus.post(new FlashBusEvent());
     }
 }
