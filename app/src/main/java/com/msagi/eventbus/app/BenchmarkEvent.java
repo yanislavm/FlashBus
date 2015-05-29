@@ -1,20 +1,22 @@
-package com.msagi.eventbus.app.event;
+package com.msagi.eventbus.app;
+
+import com.msagi.eventbus.EventBus;
 
 /**
- * Base benchmark event.
+ * Benchmark event.
  * @author msagi
  */
-public abstract class BaseBenchmarkEvent {
+public class BenchmarkEvent implements EventBus.IEvent {
 
     /**
      * The timestamp of the event created.
      */
-    private final long mStartTimestamp;
+    private long mStartTimestamp;
 
     /**
-     * Create new instance.
+     * Reset the life time counter.
      */
-    public BaseBenchmarkEvent() {
+    public void resetLifeTime() {
         mStartTimestamp = System.nanoTime();
     }
 

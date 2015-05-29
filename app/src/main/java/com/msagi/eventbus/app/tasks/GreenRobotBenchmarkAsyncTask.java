@@ -1,6 +1,6 @@
 package com.msagi.eventbus.app.tasks;
 
-import com.msagi.eventbus.app.event.GreenRobotEvent;
+import com.msagi.eventbus.app.BenchmarkEvent;
 
 import de.greenrobot.event.EventBus;
 
@@ -14,6 +14,15 @@ public class GreenRobotBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
      */
     private EventBus mGreenRobotBus;
 
+    /**
+     * Create new instance.
+     *
+     * @param events The array of events to post during benchmark.
+     */
+    public GreenRobotBenchmarkAsyncTask(final BenchmarkEvent[] events) {
+        super(events);
+    }
+
     @Override
     public void register() {
         mGreenRobotBus = EventBus.getDefault();
@@ -26,11 +35,12 @@ public class GreenRobotBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
     }
 
     @Override
-    public void post() {
-        mGreenRobotBus.post(new GreenRobotEvent());
+    public void post(final BenchmarkEvent event) {
+        event.resetLifeTime();
+        mGreenRobotBus.post(event);
     }
 
-    public void onEventMainThread(final GreenRobotEvent event) {
+    public void onEventMainThread(final BenchmarkEvent event) {
         super.onEventDelivered(event);
     }
 }
