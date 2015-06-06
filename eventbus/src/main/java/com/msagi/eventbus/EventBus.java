@@ -3,12 +3,7 @@ package com.msagi.eventbus;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.util.Log;
 
-import java.lang.ref.WeakReference;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -46,24 +41,29 @@ public class EventBus {
     }
 
     /**
+     * List of supported thread Id-s.
+     */
+    public enum ThreadId {
+        /**
+         * The Id of the MAIN thread.
+         */
+        MAIN,
+
+        /**
+         * The Id of the background thread.
+         */
+         BACKGROUND
+    }
+
+    /**
      * Tag for logging.
      */
     private static final String TAG = EventBus.class.getSimpleName();
 
     /**
-     * The singleton instance running on main (UI) thread.
+     * The singleton instance running on main (MAIN) thread.
      */
     private static EventBus sDefaultBus;
-
-    /**
-     * The event handlers registry.
-     */
-    private final ConcurrentHashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new ConcurrentHashMap<>();
-
-    /**
-     * Keeps information which Event Handler for which Event type is.
-     */
-    private final WeakHashMap<IEventHandler, Class<? extends IEvent>> mEventHandlerEvent = new WeakHashMap<>();
 
     /**
      * The map of sticky events.
@@ -71,29 +71,29 @@ public class EventBus {
     private final ConcurrentHashMap<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
 
     /**
-     * The event dispatcher on the main thread.
+     * The event dispatcher on the MAIN thread.
      */
-    private final EventDispatcher mMainEventDispatcher;
+    private final EventDispatcher mMainThreadEventDispatcher;
 
     /**
      * The event dispatcher on the background thread.
      */
-    private final EventDispatcher mBackgroundEventDispatcher;
+    private final EventDispatcher mBackgroundThreadEventDispatcher;
 
     /**
      * Create a new event bus instance. Use {@link #getDefault()} to get the default bus instance.
      */
     public EventBus() {
-        mMainEventDispatcher = new EventDispatcher(new Handler(Looper.getMainLooper()));
-        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundBus");
+        mMainThreadEventDispatcher = new EventDispatcher(new Handler(Looper.getMainLooper()));
+        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundDispatcherThread");
         backgroundHandlerThread.start();
-        mBackgroundEventDispatcher = new EventDispatcher(new Handler(backgroundHandlerThread.getLooper()));
+        mBackgroundThreadEventDispatcher = new EventDispatcher(new Handler(backgroundHandlerThread.getLooper()));
     }
 
     /**
      * Get the default event bus instance. Use this method only if you would like to use the default event bus. Use {@link #EventBus()} to create a new event bus instance.
      *
-     * @return The bus instance running on the main (UI) thread.
+     * @return The bus instance running on the main (MAIN) thread.
      */
     public synchronized static EventBus getDefault() {
         if (sDefaultBus == null) {
@@ -103,42 +103,33 @@ public class EventBus {
     }
 
     /**
-     * Register an event handler for the given event class. Registering a null event handler or multiple registration of the same handler has no effect.
+     * Register an event handler for the given event class. Registering to a null event class, registering a null event handler or multiple registration of the same
+     * handler has no effect.
      *
      * @param eventClass   The class of the event to register for.
+     * @param threadId     The id of the thread to dispatch the events on.
      * @param eventHandler The event handler instance.
+     * @throws IllegalArgumentException If the event handler is already registered to the same event class on a different thread.
      */
-    public void register(final Class<? extends IEvent> eventClass, final IEventHandler eventHandler) {
-        if (eventHandler == null) {
+    public void register(final Class<? extends IEvent> eventClass, final ThreadId threadId, final IEventHandler eventHandler) {
+        if (eventHandler == null || eventClass == null || threadId == null) {
             return;
         }
 
-        synchronized (mEventHandlers) {
-            mEventHandlerEvent.put(eventHandler, eventClass);
-            LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-            if (handlers == null) {
-                handlers = new LinkedList<>();
-                mEventHandlers.put(eventClass, handlers);
-            }
+        switch (threadId) {
 
-            final IEvent stickyEvent = mStickyEvents.get(eventClass);
-            if (stickyEvent != null) {
-                try {
-                    eventHandler.onEvent(eventClass.cast(stickyEvent));
-                } catch (RuntimeException e) {
-                    Log.e(TAG, "Error dispatching event", e);
+            case MAIN:
+                if (mBackgroundThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
+                    throw new IllegalArgumentException("Event handler has already been registered on BACKGROUND thread");
                 }
-            }
-
-            final int handlerReferenceSize = handlers.size();
-            for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; handlerReferenceIndex++) {
-                final WeakReference<IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
-                if (handlerReference.get() == eventHandler) {
-                    return;
+                mMainThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
+                break;
+            case BACKGROUND:
+                if (mMainThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
+                    throw new IllegalArgumentException("Event handler has already been registered on MAIN thread");
                 }
-            }
-
-            handlers.add(new WeakReference<>(eventHandler));
+                mBackgroundThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
+                break;
         }
     }
 
@@ -147,37 +138,9 @@ public class EventBus {
      *
      * @param eventHandler The event handler instance to unregister.
      */
-    public void unregister(final IEventHandler eventHandler) {
-        if (eventHandler == null) {
-            return;
-        }
-
-        synchronized (mEventHandlers) {
-            final Class<? extends IEvent> eventClass = mEventHandlerEvent.get(eventHandler);
-
-            if (eventClass != null) {
-                mEventHandlerEvent.remove(eventHandler);
-                final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-
-                if (handlers != null) {
-                    int handlerReferenceSize = handlers.size();
-
-                    for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; ) {
-                        final WeakReference<IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
-                        final Object handler = handlerReference.get();
-                        if (handler == null || handler == eventHandler) {
-                            handlers.remove(handlerReferenceIndex);
-                            handlerReferenceSize--;
-                            if (handlerReferenceSize == 0) {
-                                mEventHandlers.remove(eventClass);
-                            }
-                        } else {
-                            handlerReferenceIndex++;
-                        }
-                    }
-                }
-            }
-        }
+    public void unregister(final EventBus.IEventHandler eventHandler) {
+        mMainThreadEventDispatcher.unregister(eventHandler);
+        mBackgroundThreadEventDispatcher.unregister(eventHandler);
     }
 
     /**
@@ -190,7 +153,6 @@ public class EventBus {
         if (eventClass == null) {
             return null;
         }
-
         return eventClass.cast(mStickyEvents.get(eventClass));
     }
 
@@ -233,27 +195,7 @@ public class EventBus {
             return;
         }
 
-        final Class<? extends IEvent> eventClass = event.getClass();
-        final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-
-        if (handlers == null) {
-            return;
-        }
-        int handlerReferenceSize = handlers.size();
-
-        for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; ) {
-            final WeakReference<IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
-            final IEventHandler handler = handlerReference.get();
-            if (handler == null) {
-                handlers.remove(handlerReferenceIndex);
-                handlerReferenceSize--;
-                if (handlerReferenceSize == 0) {
-                    mEventHandlers.remove(eventClass);
-                }
-            } else {
-                mMainEventDispatcher.dispatch(event, handler);
-                handlerReferenceIndex++;
-            }
-        }
+        mMainThreadEventDispatcher.dispatch(event);
+        mBackgroundThreadEventDispatcher.dispatch(event);
     }
 }

@@ -3,6 +3,10 @@ package com.msagi.eventbus;
 import android.os.Handler;
 import android.util.Log;
 
+import java.lang.ref.WeakReference;
+import java.util.LinkedList;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -21,17 +25,17 @@ public class EventDispatcher {
     /**
      * Holder for Event - Event handler pairs.
      */
-    private static class EventsHolder {
+    public static class EventsHolder {
 
         /**
          * The size of the holder cache.
          */
-        private static final int CACHE_SIZE = 250;
+        private static final int CACHE_SIZE = 1000;
 
         /**
          * Holder instance cache to recycle unused holders instead of creating and garbage collecting them.
          */
-        private static final ConcurrentLinkedQueue<EventsHolder> CACHE = new ConcurrentLinkedQueue<>();
+        private static final ConcurrentLinkedQueue<EventsHolder> CACHE;
 
         /**
          * Event Handler to deliver the event to.
@@ -42,6 +46,18 @@ public class EventDispatcher {
          * Event to deliver to the event handler.
          */
         private EventBus.IEvent mEvent;
+
+        static {
+            CACHE = new ConcurrentLinkedQueue<>();
+            //pre-fill object pool in one loop
+            for (int pooledObjectIndex = 0; pooledObjectIndex < CACHE_SIZE; pooledObjectIndex++) {
+                CACHE.add(new EventsHolder(null, null));
+            }
+        }
+
+        public static final int getCacheSize() {
+            return CACHE.size();
+        }
 
         /**
          * Create new instance.
@@ -76,13 +92,22 @@ public class EventDispatcher {
          * Recycle unused holder instance.
          */
         private void recycle() {
-            if (CACHE.size() < CACHE_SIZE) {
-                mEvent = null;
-                mEventHandler = null;
-                CACHE.add(this);
-            }
+            //TODO msagi: uprade this to automatically find balanced object pool size
+            mEvent = null;
+            mEventHandler = null;
+            CACHE.add(this);
         }
     }
+
+    /**
+     * The map of event handlers registered to this dispatcher.
+     */
+    private final ConcurrentHashMap<Class<? extends EventBus.IEvent>, LinkedList<WeakReference<EventBus.IEventHandler>>> mEventHandlers = new ConcurrentHashMap<>();
+
+    /**
+     * Keeps information which Event Handler for which Event type is.
+     */
+    private final WeakHashMap<EventBus.IEventHandler, Class<? extends EventBus.IEvent>> mEventHandlerEvent = new WeakHashMap<>();
 
     /**
      * The queue of event holders.
@@ -128,17 +153,130 @@ public class EventDispatcher {
     }
 
     /**
+     * Register an event handler for the given event class. Registering a null event handler or multiple registration of the same handler has no effect.
+     *
+     * @param eventClass   The class of the event to register for.
+     * @param eventHandler The event handler instance.
+     * @param stickyEvent  The sticky event instance to be dispatched on registration
+     */
+    public void register(final Class<? extends EventBus.IEvent> eventClass, final EventBus.IEventHandler eventHandler, final EventBus.IEvent stickyEvent) {
+
+        synchronized (mEventHandlers) {
+            mEventHandlerEvent.put(eventHandler, eventClass);
+            LinkedList<WeakReference<EventBus.IEventHandler>> handlers = mEventHandlers.get(eventClass);
+            if (handlers == null) {
+                handlers = new LinkedList<>();
+                mEventHandlers.put(eventClass, handlers);
+            }
+
+            if (stickyEvent != null) {
+                try {
+                    //this dispatch is synchronous but since an event handler cannot be registered twice, it cannot cause problem
+                    eventHandler.onEvent(eventClass.cast(stickyEvent));
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "Error dispatching event", e);
+                }
+            }
+
+            final int handlerReferenceSize = handlers.size();
+            for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; handlerReferenceIndex++) {
+                final WeakReference<EventBus.IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
+                if (handlerReference.get() == eventHandler) {
+                    return;
+                }
+            }
+
+            handlers.add(new WeakReference<>(eventHandler));
+        }
+    }
+
+    /**
+     * Unregister an already registered event handler. Unregistering null or not registered event handler has no effect.
+     *
+     * @param eventHandler The event handler instance to unregister.
+     */
+    public void unregister(final EventBus.IEventHandler eventHandler) {
+        if (eventHandler == null) {
+            return;
+        }
+
+        synchronized (mEventHandlers) {
+            final Class<? extends EventBus.IEvent> eventClass = mEventHandlerEvent.get(eventHandler);
+
+            if (eventClass != null) {
+                mEventHandlerEvent.remove(eventHandler);
+                final LinkedList<WeakReference<EventBus.IEventHandler>> handlers = mEventHandlers.get(eventClass);
+
+                if (handlers != null) {
+                    int handlerReferenceSize = handlers.size();
+
+                    for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; ) {
+                        final WeakReference<EventBus.IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
+                        final Object handler = handlerReference.get();
+                        if (handler == null || handler == eventHandler) {
+                            handlers.remove(handlerReferenceIndex);
+                            handlerReferenceSize--;
+                            if (handlerReferenceSize == 0) {
+                                mEventHandlers.remove(eventClass);
+                            }
+                        } else {
+                            handlerReferenceIndex++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if the event handler has already been registered to this dispatcher. Note: it is not allowed for an event listener to be registered on multiple dispatchers.
+     *
+     * @param eventClass   The class of the event to register for.
+     * @param eventHandler The event handler instance.
+     * @return True if the given event handler has been registered to the given event class on the current dispatcher, false otherwise.
+     */
+    boolean isRegistered(final Class<? extends EventBus.IEvent> eventClass, final EventBus.IEventHandler eventHandler) {
+        final LinkedList<WeakReference<EventBus.IEventHandler>> handlers = mEventHandlers.get(eventClass);
+        if (handlers != null) {
+            return handlers.contains(eventHandler);
+        }
+        return false;
+    }
+
+
+    /**
      * Dispatch event to its event handler.
      *
-     * @param event        The event to be dispatched.
-     * @param eventHandler The event handler the event to be dispatched to.
-     * @param <T>          The type of the event.
+     * @param event The event to be dispatched.
+     * @param <T>   The type of the event.
      */
-    public <T extends EventBus.IEvent> void dispatch(final T event, final EventBus.IEventHandler<T> eventHandler) {
-        mEventQueue.add(EventsHolder.obtain(event, eventHandler));
+    public <T extends EventBus.IEvent> void dispatch(final T event) {
 
-        if (mIsEventDispatcherActive.compareAndSet(/* expected value */ false, /* new value */ true)) {
-            mHandler.post(mEventDispatcherWorker);
+        final Class<? extends EventBus.IEvent> eventClass = event.getClass();
+        final LinkedList<WeakReference<EventBus.IEventHandler>> handlers = mEventHandlers.get(eventClass);
+
+        if (handlers == null) {
+            return;
+        }
+        int handlerReferenceSize = handlers.size();
+
+        for (int handlerReferenceIndex = 0; handlerReferenceIndex < handlerReferenceSize; ) {
+            final WeakReference<EventBus.IEventHandler> handlerReference = handlers.get(handlerReferenceIndex);
+            final EventBus.IEventHandler handler = handlerReference.get();
+            if (handler == null) {
+                handlers.remove(handlerReferenceIndex);
+                handlerReferenceSize--;
+                if (handlerReferenceSize == 0) {
+                    mEventHandlers.remove(eventClass);
+                }
+            } else {
+                mEventQueue.add(EventsHolder.obtain(event, handler));
+
+                if (mIsEventDispatcherActive.compareAndSet(/* expected value */ false, /* new value */ true)) {
+                    mHandler.post(mEventDispatcherWorker);
+                }
+                handlerReferenceIndex++;
+            }
         }
     }
 }

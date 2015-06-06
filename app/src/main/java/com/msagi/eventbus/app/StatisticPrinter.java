@@ -36,7 +36,7 @@ public class StatisticPrinter {
     }
 
     private static void writeReport(final Context context, final byte[] bytes) throws IOException {
-        final File file = new File(context.getExternalFilesDir(null), FILE_NAME);
+        final File file = new File(getStatisticsFilePath(context));
         if (!file.exists()) {
             file.createNewFile();
         }
@@ -56,5 +56,14 @@ public class StatisticPrinter {
      */
     public static void printLineSeparator(final Context context) throws IOException {
         writeReport(context, LINE_SEPARATOR.getBytes());
+    }
+
+    /**
+     * Get the path of the statistics file.
+     * @param context The context to use.
+     * @return The path {@link String} of the statistics file.
+     */
+    public static String getStatisticsFilePath(final Context context) {
+        return context.getFilesDir() + File.separator +  FILE_NAME;
     }
 }
