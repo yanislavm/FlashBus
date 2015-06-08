@@ -1,13 +1,14 @@
 package com.msagi.eventbus.app.tasks;
 
-import com.msagi.eventbus.app.IBenchmarkCallback;
-import com.msagi.eventbus.app.event.BaseBenchmarkEvent;
-
 import android.os.AsyncTask;
 import android.util.Log;
 
+import com.msagi.eventbus.app.BenchmarkEvent;
+import com.msagi.eventbus.app.IBenchmarkCallback;
+
 /**
  * Base async task for benchmarks.
+ *
  * @author msagi
  */
 public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void> {
@@ -18,9 +19,14 @@ public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void>
     private static final String TAG = BaseBenchmarkAsyncTask.class.getSimpleName();
 
     /**
-     * Number of events to be posted to the bus.
+     * Time interval before posting.
      */
-    private long mNumberOfEvents = 1;
+    private static final long SLEEP_BEFORE_POSTING = 2000L;
+
+    /**
+     * The array of events to post during the benchmark.
+     */
+    private final BenchmarkEvent[] mEvents;
 
     /**
      * The minimum (fastest) delivery time.
@@ -55,22 +61,19 @@ public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void>
     /**
      * Create new instance.
      */
-    public BaseBenchmarkAsyncTask() {
-    }
-
-    /**
-     * Set number of events to post to the event bus during the benchmark.
-     * @param numberOfEvents The number of events.
-     */
-    public void setNumberOfEvents(final long numberOfEvents) {
-        if (numberOfEvents < 1) {
-            throw new IllegalArgumentException("numberOfEvents < 1");
+    public BaseBenchmarkAsyncTask(final BenchmarkEvent[] events) {
+        if (events == null) {
+            throw new IllegalArgumentException("events == null");
         }
-        mNumberOfEvents = numberOfEvents;
+        if (events.length < 1) {
+            throw new IllegalArgumentException("events.length < 1");
+        }
+        mEvents = events;
     }
 
     /**
      * Set benchmark callback interface.
+     *
      * @param benchmarkCallback The callback interface.
      */
     public void setCallback(final IBenchmarkCallback benchmarkCallback) {
@@ -88,15 +91,18 @@ public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void>
     public abstract void unregister();
 
     /**
-     * Post new event to the event bus.
+     * Post given event to the event bus.
+     *
+     * @param event The event to be posted to the event bus.
      */
-    public abstract void post();
+    public abstract void post(final BenchmarkEvent event);
 
     /**
      * The event delivery registration method.
+     *
      * @param event The event to register as delivered.
      */
-    protected void onEventDelivered(final BaseBenchmarkEvent event) {
+    protected void onEventDelivered(final BenchmarkEvent event) {
         final long delta = event.getLifetimeTime();
         if (delta < mFastestDeliveryTime) {
             mFastestDeliveryTime = delta;
@@ -112,14 +118,14 @@ public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void>
      */
     protected void postEvents() {
         try {
-            Thread.currentThread().sleep(1000);
+            Thread.currentThread().sleep(SLEEP_BEFORE_POSTING);
         } catch (InterruptedException ie) {
             Log.e(TAG, "Interrupted", ie);
         }
 
         mPostingStartTimestamp = System.nanoTime();
-        for (int index = 0; index < mNumberOfEvents; index++) {
-            post();
+        for (int index = 0; index < mEvents.length; index++) {
+            post(mEvents[index]);
         }
     }
 
@@ -140,10 +146,11 @@ public abstract class BaseBenchmarkAsyncTask extends AsyncTask<Void, Void, Void>
         super.onPostExecute(aVoid);
         unregister();
         if (mBenchmarkCallback != null) {
-            if (mTotalEventsDelivered >= mNumberOfEvents) {
+            if (mTotalEventsDelivered >= mEvents.length) {
                 mEventDeliveryTotalTime = System.nanoTime() - mPostingStartTimestamp;
             }
-            mBenchmarkCallback.onBenchmarkFinished(getClass().getSimpleName(), mFastestDeliveryTime, mSlowestDeliveryTime, mTotalEventsDelivered, mEventDeliveryTotalTime);
+            mBenchmarkCallback.onBenchmarkFinished(getClass().getSimpleName(), mFastestDeliveryTime, mSlowestDeliveryTime, mTotalEventsDelivered,
+                    mEventDeliveryTotalTime);
         }
     }
 }

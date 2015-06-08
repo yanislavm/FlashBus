@@ -3,12 +3,12 @@ package com.msagi.eventbus.app.tasks;
 import android.util.Log;
 
 import com.msagi.eventbus.EventBus;
-
 import com.msagi.eventbus.EventDispatcher;
-import com.msagi.eventbus.app.event.FlashBusEvent;
+import com.msagi.eventbus.app.BenchmarkEvent;
 
 /**
  * Custom async task for FlashBus.
+ *
  * @author msagi
  */
 public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
@@ -26,18 +26,27 @@ public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
     /**
      * The event handler.
      */
-    private EventBus.IEventHandler<FlashBusEvent> mEventHandler;
+    private EventBus.IEventHandler<BenchmarkEvent> mEventHandler;
+
+    /**
+     * Create new instance.
+     *
+     * @param events The array of events to post during benchmark.
+     */
+    public FlashBenchmarkAsyncTask(final BenchmarkEvent[] events) {
+        super(events);
+    }
 
     @Override
     public void register() {
         mFlashBus = EventBus.getDefault();
-        mEventHandler = new EventBus.IEventHandler<FlashBusEvent>() {
+        mEventHandler = new EventBus.IEventHandler<BenchmarkEvent>() {
             @Override
-            public void onEvent(final FlashBusEvent event) {
+            public void onEvent(final BenchmarkEvent event) {
                 onEventDelivered(event);
             }
         };
-        mFlashBus.register(FlashBusEvent.class, EventBus.ThreadId.MAIN, mEventHandler);
+        mFlashBus.register(BenchmarkEvent.class, EventBus.ThreadId.MAIN, mEventHandler);
     }
 
     @Override
@@ -46,8 +55,9 @@ public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
     }
 
     @Override
-    public void post() {
-        mFlashBus.post(new FlashBusEvent());
+    public void post(final BenchmarkEvent event) {
+        event.resetLifeTime();
+        mFlashBus.post(event);
     }
 
     @Override

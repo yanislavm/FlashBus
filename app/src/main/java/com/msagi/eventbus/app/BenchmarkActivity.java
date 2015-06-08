@@ -1,16 +1,16 @@
 package com.msagi.eventbus.app;
 
-import com.msagi.eventbus.app.tasks.BaseBenchmarkAsyncTask;
-import com.msagi.eventbus.app.tasks.FlashBenchmarkAsyncTask;
-import com.msagi.eventbus.app.tasks.GreenRobotBenchmarkAsyncTask;
-import com.msagi.eventbus.app.tasks.GuavaBenchmarkAsyncTask;
-import com.msagi.eventbus.app.tasks.OttoBenchmarkAsyncTask;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+
+import com.msagi.eventbus.app.tasks.BaseBenchmarkAsyncTask;
+import com.msagi.eventbus.app.tasks.FlashBenchmarkAsyncTask;
+import com.msagi.eventbus.app.tasks.GreenRobotBenchmarkAsyncTask;
+import com.msagi.eventbus.app.tasks.GuavaBenchmarkAsyncTask;
+import com.msagi.eventbus.app.tasks.OttoBenchmarkAsyncTask;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,14 +23,26 @@ import java.util.ArrayList;
 public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
 
     /**
-     * The number of events per benchmark.
-     */
-    private static final long NUMBER_OF_EVENTS = 100000L;
-
-    /**
      * Tag for logging.
      */
     private static final String TAG = BenchmarkActivity.class.getSimpleName();
+
+    /**
+     * The number of events per benchmark.
+     */
+    public static final int NUMBER_OF_EVENTS = 1000000;
+
+    /**
+     * Preset pool of benchmark events.
+     */
+    private static final BenchmarkEvent[] EVENTS;
+
+    static {
+        EVENTS = new BenchmarkEvent[NUMBER_OF_EVENTS];
+        for (int index = 0; index < EVENTS.length; index++) {
+            EVENTS[index] = new BenchmarkEvent();
+        }
+    }
 
     /**
      * Adapter for the list view.
@@ -57,7 +69,7 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
      * @param totalDeliveryTime       The total benchmark time.
      */
     public void onBenchmarkFinished(final String benchmarkId, final long fastestDeliveryTime, final long slowestDeliveryTime, final long numberOfDeliveredEvents,
-            final long totalDeliveryTime) {
+                                    final long totalDeliveryTime) {
 
         final String message;
         if (numberOfDeliveredEvents > 0) {
@@ -101,7 +113,6 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
             return;
         }
         final BaseBenchmarkAsyncTask benchmarkAsyncTask = mBenchmarkTasks.remove(0);
-        benchmarkAsyncTask.setNumberOfEvents(NUMBER_OF_EVENTS);
         benchmarkAsyncTask.setCallback(this);
         Log.d(TAG, "Starting benchmark: " + benchmarkAsyncTask.getClass().getSimpleName());
         benchmarkAsyncTask.execute();
@@ -120,10 +131,10 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
         mMessages.add(message);
         mAdapter.notifyDataSetChanged();
 
-        mBenchmarkTasks.add(new GuavaBenchmarkAsyncTask());
-        mBenchmarkTasks.add(new FlashBenchmarkAsyncTask());
-        mBenchmarkTasks.add(new GreenRobotBenchmarkAsyncTask());
-        mBenchmarkTasks.add(new OttoBenchmarkAsyncTask());
+        mBenchmarkTasks.add(new GuavaBenchmarkAsyncTask(EVENTS));
+        mBenchmarkTasks.add(new FlashBenchmarkAsyncTask(EVENTS));
+        mBenchmarkTasks.add(new GreenRobotBenchmarkAsyncTask(EVENTS));
+        mBenchmarkTasks.add(new OttoBenchmarkAsyncTask(EVENTS));
 
         startNextBenchmark();
     }
