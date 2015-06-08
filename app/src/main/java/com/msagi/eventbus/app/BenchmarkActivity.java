@@ -76,6 +76,7 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
 
         try {
             StatisticPrinter.printStatistics(this, benchmarkId, numberOfDeliveredEvents, fastestDeliveryTime, slowestDeliveryTime, totalDeliveryTime);
+            Log.d(TAG, "Benchmark statistics is printed to: " + StatisticPrinter.getStatisticsFilePath(this));
         } catch (IOException ioe) {
             Log.e(TAG, "Cannot save statistics", ioe);
         }
@@ -102,6 +103,7 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
         final BaseBenchmarkAsyncTask benchmarkAsyncTask = mBenchmarkTasks.remove(0);
         benchmarkAsyncTask.setNumberOfEvents(NUMBER_OF_EVENTS);
         benchmarkAsyncTask.setCallback(this);
+        Log.d(TAG, "Starting benchmark: " + benchmarkAsyncTask.getClass().getSimpleName());
         benchmarkAsyncTask.execute();
     }
 

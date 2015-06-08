@@ -3,42 +3,33 @@ package com.msagi.eventbus;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.util.Log;
 
-import java.lang.ref.WeakReference;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Custom event bus implementation designed to be super fast.
  *
  * Features:
- * - no inheritance in event types, events are delivered to their exact matching handlers
- * - optional unregistration, callbacks are kept as weak references and registry cleanup happens on every .post call
+ * - Designed for speed.
+ * - Supports all Android frameworks (API1+).
+ * - Simple, clean, thread safe API.
+ * - Unit tested with 100% coverage.
+ * - No chance to leak context (the bus keeps weak references to the event handlers, this makes calling .unregister() optional).
+ * - No inheritance in event types, events are delivered to their exact matching handlers.
  *
- * @author msagi
+ * @author msagi (miklos.sagi@gmail.com)
+ * @author yanislav.mihaylov (jany81@gmail.com)
  */
 public class EventBus {
 
     /**
-     * Target thread for event posting: UI (main) thread.
+     * Interface for event bus events.
      */
-    public static final byte UI_THREAD = 0;
+    public interface IEvent {
+    }
 
     /**
-     * Target thread for event posting: background thread.
-     */
-    public static final byte BACKGROUND_THREAD = 1;
-
-    /**
-     * Technical interface for event bus events.
-     */
-    public interface IEvent {}
-
-    /**
-     * Technical interface for event bus event handlers.
+     * Interface for event bus event handlers.
      */
     public interface IEventHandler<E extends IEvent> {
         /**
@@ -50,24 +41,29 @@ public class EventBus {
     }
 
     /**
+     * List of supported thread Id-s.
+     */
+    public enum ThreadId {
+        /**
+         * The Id of the MAIN thread.
+         */
+        MAIN,
+
+        /**
+         * The Id of the background thread.
+         */
+         BACKGROUND
+    }
+
+    /**
      * Tag for logging.
      */
     private static final String TAG = EventBus.class.getSimpleName();
 
     /**
-     * The singleton instance.
+     * The singleton instance running on main (MAIN) thread.
      */
-    private static final EventBus DEFAULT_BUS = new EventBus();
-
-    /**
-     * The event handlers registry.
-     */
-    private final ConcurrentHashMap<Class<? extends IEvent>, LinkedList<WeakReference<IEventHandler>>> mEventHandlers = new ConcurrentHashMap<>();
-
-    /**
-     * Keeps information which Event Handler for which Event type is.
-     */
-    private final WeakHashMap<IEventHandler, Class<? extends IEvent>> mEventHandlerEvent = new WeakHashMap<>();
+    private static EventBus sDefaultBus;
 
     /**
      * The map of sticky events.
@@ -75,136 +71,110 @@ public class EventBus {
     private final ConcurrentHashMap<Class<? extends IEvent>, IEvent> mStickyEvents = new ConcurrentHashMap<>();
 
     /**
-     * Message handler that will be used to deliver events to the UI thread.
+     * The event dispatcher on the MAIN thread.
      */
-    private final MessagesHandler mUiThreadMessageHandler;
+    private final EventDispatcher mMainThreadEventDispatcher;
 
     /**
-     * Message handler that will be used to deliver events to the background thread.
+     * The event dispatcher on the background thread.
      */
-    private final MessagesHandler mBackgroundThreadMessageHandler;
+    private final EventDispatcher mBackgroundThreadEventDispatcher;
 
     /**
-     * Create new instance.
+     * Create a new event bus instance. Use {@link #getDefault()} to get the default bus instance.
      */
     public EventBus() {
-        mUiThreadMessageHandler = new MessagesHandler(new Handler(Looper.getMainLooper()));
-        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundMessageHandler", BACKGROUND_THREAD);
+        mMainThreadEventDispatcher = new EventDispatcher(new Handler(Looper.getMainLooper()));
+        final HandlerThread backgroundHandlerThread = new HandlerThread("backgroundDispatcherThread");
         backgroundHandlerThread.start();
-        mBackgroundThreadMessageHandler = new MessagesHandler(new Handler(backgroundHandlerThread.getLooper()));
+        mBackgroundThreadEventDispatcher = new EventDispatcher(new Handler(backgroundHandlerThread.getLooper()));
     }
 
     /**
-     * Get the 'default' bus instance.
+     * Get the default event bus instance. Use this method only if you would like to use the default event bus. Use {@link #EventBus()} to create a new event bus instance.
      *
-     * @return The default bus instance.
+     * @return The bus instance running on the main (MAIN) thread.
      */
-    public static EventBus getDefault() {
-        return DEFAULT_BUS;
+    public synchronized static EventBus getDefault() {
+        if (sDefaultBus == null) {
+            sDefaultBus = new EventBus();
+        }
+        return sDefaultBus;
     }
 
     /**
-     * Register a callback for the given event type. Multiple registration of the same handler has no effect.
+     * Register an event handler for the given event class. Registering to a null event class, registering a null event handler or multiple registration of the same
+     * handler has no effect.
      *
-     * @param eventClass   The event type class.
-     * @param eventHandler The callback of the event handler.
+     * @param eventClass   The class of the event to register for.
+     * @param threadId     The id of the thread to dispatch the events on.
+     * @param eventHandler The event handler instance.
+     * @throws IllegalArgumentException If the event handler is already registered to the same event class on a different thread.
      */
-    public void register(final Class<? extends IEvent> eventClass, final IEventHandler eventHandler) {
-        if (eventHandler == null) {
+    public void register(final Class<? extends IEvent> eventClass, final ThreadId threadId, final IEventHandler eventHandler) {
+        if (eventHandler == null || eventClass == null || threadId == null) {
             return;
         }
 
-        synchronized (mEventHandlers) {
-            mEventHandlerEvent.put(eventHandler, eventClass);
-            LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-            if (handlers == null) {
-                handlers = new LinkedList<>();
-                mEventHandlers.put(eventClass, handlers);
-            }
+        switch (threadId) {
 
-            final IEvent stickyEvent = mStickyEvents.get(eventClass);
-            if (stickyEvent != null) {
-                try {
-                    eventHandler.onEvent(eventClass.cast(stickyEvent));
-                } catch (RuntimeException e) {
-                    Log.e(TAG, "Error dispatching event", e);
+            case MAIN:
+                if (mBackgroundThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
+                    throw new IllegalArgumentException("Event handler has already been registered on BACKGROUND thread");
                 }
-            }
-
-            for (final WeakReference<IEventHandler> handlerReference : handlers) {
-                if (handlerReference.get() == eventHandler) {
-                    return;
+                mMainThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
+                break;
+            case BACKGROUND:
+                if (mMainThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
+                    throw new IllegalArgumentException("Event handler has already been registered on MAIN thread");
                 }
-            }
-
-            handlers.add(new WeakReference<>(eventHandler));
+                mBackgroundThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
+                break;
         }
     }
 
     /**
-     * Unregister a callback.
+     * Unregister an already registered event handler. Unregistering null or not registered event handler has no effect.
      *
-     * @param eventHandler The callback of the event handler.
+     * @param eventHandler The event handler instance to unregister.
      */
-    public void unregister(final IEventHandler eventHandler) {
-        if (eventHandler == null) {
-            return;
-        }
-
-        synchronized (mEventHandlers) {
-            Class<? extends IEvent> eventClass = mEventHandlerEvent.get(eventHandler);
-
-            if (eventClass != null) {
-                mEventHandlerEvent.remove(eventHandler);
-                final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-                if (handlers != null) {
-                    final Iterator<WeakReference<IEventHandler>> handlerReferenceIterator = handlers.iterator();
-                    while (handlerReferenceIterator.hasNext()) {
-                        final WeakReference<IEventHandler> handlerReference = handlerReferenceIterator.next();
-                        if ((handlerReference.get() == null) || (handlerReference.get() == eventHandler)) {
-                            handlerReferenceIterator.remove();
-                            if (handlers.isEmpty()) {
-                                mEventHandlers.remove(eventClass);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    public void unregister(final EventBus.IEventHandler eventHandler) {
+        mMainThreadEventDispatcher.unregister(eventHandler);
+        mBackgroundThreadEventDispatcher.unregister(eventHandler);
     }
 
     /**
      * Get the sticky event from the bus by event class.
      *
-     * @param eventClass The class to get the sticky event for.
-     * @return The sticky event object if there is any for the given event class.
+     * @param eventClass The event class to get the sticky event for.
+     * @return The sticky event object for the given event class if any, null otherwise.
      */
     public <T extends IEvent> T getStickyEvent(final Class<T> eventClass) {
         if (eventClass == null) {
             return null;
         }
-
         return eventClass.cast(mStickyEvents.get(eventClass));
     }
 
     /**
-     * Post a sticky event to the bus.
+     * Post a sticky event to the bus. The bus keeps hard reference to the event instance until it is removed (see {@link #removeSticky(Class)}) so take care of this
+     * to avoid context leaking.
      *
-     * @param targetThread The target thread to post the sticky event to.
-     * @param event The event to be posted.
+     * @param event The event to be sticky posted.
      */
-    public void postSticky(final int targetThread, final IEvent event) {
+    public void postSticky(final IEvent event) {
         if (event == null) {
             return;
         }
 
         mStickyEvents.put(event.getClass(), event);
-        post(targetThread, event);
+        post(event);
     }
 
     /**
-     * Removes sticky event based on the event class
-     * @param eventClass Event class for the sticky event that needs to be removed
+     * Removes a previously posted sticky event by event class. Removing a null event class or an event class which instance has not been sticky posted has no effect.
+     *
+     * @param eventClass Event class for the sticky event to be removed.
      */
     public void removeSticky(final Class<? extends IEvent> eventClass) {
         if (eventClass == null) {
@@ -215,38 +185,17 @@ public class EventBus {
     }
 
     /**
-     * Post an event to the bus.
+     * Post an event to the bus. Posting null event or posting an event which has no registered event handler has no effect. The events are delivered to the event
+     * handlers in a 'first registered, first to receive' order.
      *
-     * @param targetThread The target thread to post the event to.
-     * @param event The event.
+     * @param event The event to be posted.
      */
-    public void post(final int targetThread, final IEvent event) {
+    public void post(final IEvent event) {
         if (event == null) {
             return;
         }
 
-        final Class<? extends IEvent> eventClass = event.getClass();
-        final LinkedList<WeakReference<IEventHandler>> handlers = mEventHandlers.get(eventClass);
-
-        if (handlers == null) {
-            return;
-        }
-
-        final Iterator<WeakReference<IEventHandler>> handlersIterator = handlers.iterator();
-        while (handlersIterator.hasNext()) {
-            final IEventHandler handler = handlersIterator.next().get();
-            if (handler == null) {
-                //housekeeping of GCd callbacks
-                handlersIterator.remove();
-            } else {
-                if (targetThread == UI_THREAD) {
-                    mUiThreadMessageHandler.postEvent(event, handler);
-                } else if (targetThread == BACKGROUND_THREAD) {
-                    mBackgroundThreadMessageHandler.postEvent(event, handler);
-                } else {
-                    throw new IllegalArgumentException("unknown target thread");
-                }
-            }
-        }
+        mMainThreadEventDispatcher.dispatch(event);
+        mBackgroundThreadEventDispatcher.dispatch(event);
     }
 }
