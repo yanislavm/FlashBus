@@ -30,7 +30,7 @@ public class BenchmarkActivity extends Activity implements IBenchmarkCallback {
     /**
      * The number of events per benchmark.
      */
-    public static final int NUMBER_OF_EVENTS = 1000000;
+    public static final int NUMBER_OF_EVENTS = 200000;
 
     /**
      * Preset pool of benchmark events.
