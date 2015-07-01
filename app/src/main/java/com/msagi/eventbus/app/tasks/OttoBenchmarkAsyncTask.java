@@ -1,11 +1,11 @@
 package com.msagi.eventbus.app.tasks;
 
-import android.os.Handler;
-import android.os.Looper;
-
 import com.msagi.eventbus.app.BenchmarkEvent;
 import com.squareup.otto.Bus;
 import com.squareup.otto.ThreadEnforcer;
+
+import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Custom async task for Otto.
@@ -35,7 +35,7 @@ public class OttoBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
 
     @Override
     public void register() {
-        mOttoBus = new Bus(ThreadEnforcer.ANY);
+        mOttoBus = new Bus(ThreadEnforcer.MAIN);
         mOttoBus.register(this);
     }
 
@@ -46,8 +46,13 @@ public class OttoBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
 
     @Override
     public void post(final BenchmarkEvent event) {
-        //TODO I'm afraid this delivers events on the same thread which calls .post(BenchmarkEvent). If so, then this test is not precise.
-        mOttoBus.post(event);
+        mHandler.post(new Runnable() {
+
+            @Override
+            public void run() {
+                mOttoBus.post(event);
+            }
+        });
     }
 
     @com.squareup.otto.Subscribe
