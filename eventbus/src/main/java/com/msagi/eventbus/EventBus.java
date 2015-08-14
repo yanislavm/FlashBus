@@ -4,6 +4,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 
+import android.support.annotation.IntDef;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -40,14 +44,18 @@ public class EventBus {
         void onEvent(E event);
     }
 
-    /**
-     * The Id of the MAIN thread.
-     */
-    public static final int THREAD_MAIN = 0;
-    /**
-     * The Id of the background thread.
-     */
-    public static final int THREAD_BACKGROUND = 1;
+    @IntDef({ThreadMode.MAIN, ThreadMode.BACKGROUND})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ThreadMode {
+        /**
+         * The Id of the MAIN thread.
+         */
+        int MAIN = 0;
+        /**
+         * The Id of the background thread.
+         */
+        int BACKGROUND = 1;
+    }
 
     /**
      * The singleton instance running on main (MAIN) thread.
@@ -100,7 +108,7 @@ public class EventBus {
      * @param eventHandler The event handler instance.
      * @throws IllegalArgumentException If the event handler is already registered to the same event class on a different thread.
      */
-    public void register(final Class<? extends IEvent> eventClass, final int threadId, final IEventHandler eventHandler) {
+    public void register(final Class<? extends IEvent> eventClass, @ThreadMode final int threadId, final IEventHandler eventHandler) {
         if (threadId < 0 || threadId > 1) {
             throw new IllegalArgumentException("Invalid threadId value");
         }
@@ -110,13 +118,13 @@ public class EventBus {
 
         switch (threadId) {
 
-            case THREAD_MAIN:
+            case ThreadMode.MAIN:
                 if (mBackgroundThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
                     throw new IllegalArgumentException("Event handler has already been registered on BACKGROUND thread");
                 }
                 mMainThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
                 break;
-            case THREAD_BACKGROUND:
+            case ThreadMode.BACKGROUND:
                 if (mMainThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
                     throw new IllegalArgumentException("Event handler has already been registered on MAIN thread");
                 }
