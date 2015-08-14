@@ -41,24 +41,13 @@ public class EventBus {
     }
 
     /**
-     * List of supported thread Id-s.
+     * The Id of the MAIN thread.
      */
-    public enum ThreadId {
-        /**
-         * The Id of the MAIN thread.
-         */
-        MAIN,
-
-        /**
-         * The Id of the background thread.
-         */
-         BACKGROUND
-    }
-
+    public static final int THREAD_MAIN = 0;
     /**
-     * Tag for logging.
+     * The Id of the background thread.
      */
-    private static final String TAG = EventBus.class.getSimpleName();
+    public static final int THREAD_BACKGROUND = 1;
 
     /**
      * The singleton instance running on main (MAIN) thread.
@@ -111,20 +100,23 @@ public class EventBus {
      * @param eventHandler The event handler instance.
      * @throws IllegalArgumentException If the event handler is already registered to the same event class on a different thread.
      */
-    public void register(final Class<? extends IEvent> eventClass, final ThreadId threadId, final IEventHandler eventHandler) {
-        if (eventHandler == null || eventClass == null || threadId == null) {
+    public void register(final Class<? extends IEvent> eventClass, final int threadId, final IEventHandler eventHandler) {
+        if (threadId < 0 || threadId > 1) {
+            throw new IllegalArgumentException("Invalid threadId value");
+        }
+        if (eventHandler == null || eventClass == null) {
             return;
         }
 
         switch (threadId) {
 
-            case MAIN:
+            case THREAD_MAIN:
                 if (mBackgroundThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
                     throw new IllegalArgumentException("Event handler has already been registered on BACKGROUND thread");
                 }
                 mMainThreadEventDispatcher.register(eventClass, eventHandler, mStickyEvents.get(eventClass));
                 break;
-            case BACKGROUND:
+            case THREAD_BACKGROUND:
                 if (mMainThreadEventDispatcher.isRegistered(eventClass, eventHandler)) {
                     throw new IllegalArgumentException("Event handler has already been registered on MAIN thread");
                 }
@@ -147,6 +139,7 @@ public class EventBus {
      * Get the sticky event from the bus by event class.
      *
      * @param eventClass The event class to get the sticky event for.
+     * @param <T> Event class
      * @return The sticky event object for the given event class if any, null otherwise.
      */
     public <T extends IEvent> T getStickyEvent(final Class<T> eventClass) {

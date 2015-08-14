@@ -37,7 +37,7 @@ public class EventBusTest {
 
     @Test
     public void registrationWithNull() {
-        mEventBus.register(null, EventBus.ThreadId.MAIN, null);
+        mEventBus.register(null, EventBus.THREAD_MAIN, null);
     }
 
     @Test
@@ -69,7 +69,7 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.post(new TestEvent());
 
         runUiTasks();
@@ -85,8 +85,8 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.post(new TestEvent());
 
         runUiTasks();
@@ -95,7 +95,7 @@ public class EventBusTest {
 
     @Test
     public void registerNewEventHandlerAfterGarbageCollection() {
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, new EventBus.IEventHandler<TestEvent>() {
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, new EventBus.IEventHandler<TestEvent>() {
             @Override
             public void onEvent(final TestEvent event) {
                 mReceivedEvents.add(event);
@@ -122,7 +122,7 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.post(new TestEventWithData("test"));
 
         runUiTasks();
@@ -145,8 +145,8 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
-        mEventBus.register(TestEventWithData.class, EventBus.ThreadId.MAIN, eventHandler2);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
+        mEventBus.register(TestEventWithData.class, EventBus.THREAD_MAIN, eventHandler2);
         mEventBus.post(new TestEventWithData("test"));
 
         runUiTasks();
@@ -172,8 +172,8 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
-        mEventBus.register(TestEventWithData.class, EventBus.ThreadId.MAIN, eventHandler2);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
+        mEventBus.register(TestEventWithData.class, EventBus.THREAD_MAIN, eventHandler2);
 
         mEventBus.post(new TestEvent());
         mEventBus.post(new TestEventWithData("test"));
@@ -204,7 +204,7 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.postSticky(new TestEvent());
 
         runUiTasks();
@@ -222,7 +222,7 @@ public class EventBusTest {
         };
 
         mEventBus.postSticky(new TestEvent());
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
 
         runUiTasks();
         assertEquals(1, mReceivedEvents.size());
@@ -251,7 +251,7 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.unregister(eventHandler);
 
         mEventBus.post(new TestEvent());
@@ -269,7 +269,7 @@ public class EventBusTest {
             }
         };
 
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
         mEventBus.post(new TestEvent());
 
         runUiTasks();
@@ -286,7 +286,7 @@ public class EventBusTest {
         };
 
         mEventBus.postSticky(new TestEvent());
-        mEventBus.register(TestEvent.class, EventBus.ThreadId.MAIN, eventHandler);
+        mEventBus.register(TestEvent.class, EventBus.THREAD_MAIN, eventHandler);
 
         runUiTasks();
         assertEquals(0, mReceivedEvents.size());
