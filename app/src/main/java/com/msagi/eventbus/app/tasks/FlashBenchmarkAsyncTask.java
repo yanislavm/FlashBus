@@ -46,7 +46,7 @@ public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
                 onEventDelivered(event);
             }
         };
-        mFlashBus.register(BenchmarkEvent.class, EventBus.ThreadId.MAIN, mEventHandler);
+        mFlashBus.register(BenchmarkEvent.class, EventBus.THREAD_MAIN, mEventHandler);
     }
 
     @Override
