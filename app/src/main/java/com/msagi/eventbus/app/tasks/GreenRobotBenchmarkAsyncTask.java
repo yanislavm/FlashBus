@@ -2,7 +2,9 @@ package com.msagi.eventbus.app.tasks;
 
 import com.msagi.eventbus.app.BenchmarkEvent;
 
-import de.greenrobot.event.EventBus;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 /**
  * Custom async task for Green Robot.
@@ -40,6 +42,7 @@ public class GreenRobotBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
         mGreenRobotBus.post(event);
     }
 
+    @Subscribe (threadMode = ThreadMode.MAIN)
     public void onEventMainThread(final BenchmarkEvent event) {
         super.onEventDelivered(event);
     }
