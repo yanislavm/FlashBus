@@ -4,6 +4,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 
+import android.support.annotation.IntDef;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -48,6 +52,10 @@ public class EventBus {
      * The Id of the background thread.
      */
     public static final int THREAD_BACKGROUND = 1;
+
+    @IntDef({THREAD_MAIN, THREAD_BACKGROUND})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ThreadId {}
 
     /**
      * The singleton instance running on main (MAIN) thread.
@@ -100,7 +108,7 @@ public class EventBus {
      * @param eventHandler The event handler instance.
      * @throws IllegalArgumentException If the event handler is already registered to the same event class on a different thread.
      */
-    public void register(final Class<? extends IEvent> eventClass, final int threadId, final IEventHandler eventHandler) {
+    public void register(final Class<? extends IEvent> eventClass, @ThreadId final int threadId, final IEventHandler eventHandler) {
         if (threadId < 0 || threadId > 1) {
             throw new IllegalArgumentException("Invalid threadId value");
         }
