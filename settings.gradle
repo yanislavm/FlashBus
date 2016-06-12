@@ -1,1 +1,6 @@
-include ':app', ':eventbus'
+include ':BenchmarkApp'
+include ':eventbus'
+
+
+project(':BenchmarkApp').projectDir = "$rootDir/examples/BenchmarkApp" as File
+project(':eventbus').projectDir = "$rootDir/eventbus" as File
