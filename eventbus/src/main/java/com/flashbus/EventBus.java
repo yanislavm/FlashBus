@@ -1,9 +1,8 @@
-package com.msagi.flashbus;
+package com.flashbus;
 
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-
 import android.support.annotation.IntDef;
 
 import java.lang.annotation.Retention;

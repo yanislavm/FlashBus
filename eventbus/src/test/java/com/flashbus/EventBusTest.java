@@ -1,7 +1,7 @@
-package com.msagi.flashbus;
+package com.flashbus;
 
-import com.msagi.flashbus.events.TestEvent;
-import com.msagi.flashbus.events.TestEventWithData;
+import com.flashbus.events.TestEvent;
+import com.flashbus.events.TestEventWithData;
 
 import junit.framework.Assert;
 

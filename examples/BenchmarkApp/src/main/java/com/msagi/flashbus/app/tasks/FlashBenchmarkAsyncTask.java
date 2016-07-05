@@ -2,8 +2,8 @@ package com.msagi.flashbus.app.tasks;
 
 import android.util.Log;
 
-import com.msagi.flashbus.EventBus;
-import com.msagi.flashbus.EventDispatcher;
+import com.flashbus.EventBus;
+import com.flashbus.EventDispatcher;
 import com.msagi.flashbus.app.BenchmarkEvent;
 
 /**
@@ -46,7 +46,7 @@ public class FlashBenchmarkAsyncTask extends BaseBenchmarkAsyncTask {
                 onEventDelivered(event);
             }
         };
-        mFlashBus.register(BenchmarkEvent.class, EventBus.ThreadMode.MAIN, mEventHandler);
+        EventBus.getDefault().register(BenchmarkEvent.class, EventBus.ThreadMode.MAIN, mEventHandler);
     }
 
     @Override
