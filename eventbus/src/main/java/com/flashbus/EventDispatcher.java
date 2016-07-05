@@ -1,4 +1,4 @@
-package com.msagi.flashbus;
+package com.flashbus;
 
 import android.os.Handler;
 import android.util.Log;

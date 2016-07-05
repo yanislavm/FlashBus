@@ -1,6 +1,6 @@
 package com.msagi.flashbus.app;
 
-import com.msagi.flashbus.EventBus;
+import com.flashbus.EventBus;
 
 /**
  * Benchmark event.

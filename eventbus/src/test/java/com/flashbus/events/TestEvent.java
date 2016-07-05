@@ -1,6 +1,6 @@
-package com.msagi.flashbus.events;
+package com.flashbus.events;
 
-import com.msagi.flashbus.EventBus;
+import com.flashbus.EventBus;
 
 /**
  * Test Event that is used in the JUnit tests
