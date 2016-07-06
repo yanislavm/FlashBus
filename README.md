@@ -11,18 +11,25 @@ The benchmark application is available in examples/BenchmarkApp folder so you ca
 ## How to use it
 The usage is very simple.
 
-1) Create a class that implements EventBus.IEvent interface. 
+1) Add dependancy to your build.gradle file
+
+```
+compile 'com.flashbus:flashbus:1.0.0'
+```
+
+
+2) Create a class that implements EventBus.IEvent interface. 
 
 ```
 public class ExampleEvent implements EventBus.IEvent {}
 ```
 
-2) Define a field into the class where you want to have a subscription for that particular event
+3) Define a field into the class where you want to have a subscription for that particular event
 
 ```
 private EventBus.IEventHandler<ExampleEvent> mEventHandler;
 ```
-3) Subscribe for the Event
+4) Subscribe for the Event
 
 ```
 EventBus.getDefault().register(ExampleEvent.class, EventBus.ThreadMode.MAIN, mEventHandler);
